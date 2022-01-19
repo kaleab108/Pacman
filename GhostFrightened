@@ -1,0 +1,122 @@
+using UnityEngine;
+
+public class GhostFrightened : GhostBehavior
+{
+    //references to all the sprite renderers.
+    public SpriteRenderer body;
+    public SpriteRenderer eyes;
+    public SpriteRenderer blue;
+    public SpriteRenderer white;
+
+    //if ghost was eaten or not.
+    public bool eaten { get; private set; }
+
+    //initializes all our references similar to the Start() function
+    public override void Enable(float duration)
+    {
+        base.Enable(duration);
+
+        this.body.enabled = false;
+        this.eyes.enabled = false;
+        this.blue.enabled = true;
+        this.white.enabled = false;
+
+        Invoke(nameof(Flash), duration / 2.0f);
+    }
+
+    //reset all our references back to their default references
+    public override void Disable()
+    {
+        base.Disable();
+
+        this.body.enabled = true;
+        this.eyes.enabled = true;
+        this.blue.enabled = false;
+        this.white.enabled = false;
+    }
+
+    //"eats" a ghost by setting sprite renderers to specific values
+    private void Eaten()
+    {
+        this.eaten = true;
+        //teleport ghost back inside the home
+        this.ghost.SetPosition(this.ghost.home.inside.position);
+        //ghost is now in GhostHome behavior 
+        this.ghost.home.Enable(this.duration);
+
+        this.body.enabled = false;
+        this.eyes.enabled = true;
+        this.blue.enabled = false;
+        this.white.enabled = false;
+    }
+
+    //dictates how the ghost�s will animate.
+    private void Flash()
+    {
+        if (!this.eaten)
+        {
+            this.blue.enabled = false;
+            this.white.enabled = true;
+            //restart the animation from the beginning
+            this.white.GetComponent<AnimatedSprite>().Restart();
+        }
+    }
+
+    //set the speed of the ghost to half of the original speed
+    private void OnEnable()
+    {
+        this.blue.GetComponent<AnimatedSprite>().Restart();
+        this.ghost.movement.speedMultiplier = 0.5f;
+        this.eaten = false;
+    }
+
+    //reset the speed to the original speed
+    private void OnDisable()
+    {
+        this.ghost.movement.speedMultiplier = 1.0f;
+        this.eaten = false;
+    }
+
+    //Needed to set the movement directions of our ghost when they are frightened
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        Node node = other.GetComponent<Node>();
+
+        if (node != null && this.enabled)
+        {
+            Vector2 direction = Vector2.zero;
+            float maxDistance = float.MinValue;
+
+            // Find the available direction that moves farthest from pacman
+            foreach (Vector2 availableDirection in node.availableDirections)
+            {
+                // If the distance in this direction is greater than the current
+                // max distance then this direction becomes the new farthest
+                Vector3 newPosition = this.transform.position + new Vector3(availableDirection.x, availableDirection.y);
+                float distance = (this.ghost.target.position - newPosition).sqrMagnitude;
+
+                if (distance > maxDistance)
+                {
+                    direction = availableDirection;
+                    maxDistance = distance;
+                }
+            }
+
+            this.ghost.movement.SetDirection(direction);
+        }
+    }
+
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        //check if ghost collided with Pacman
+        if (collision.gameObject.layer == LayerMask.NameToLayer("Pacman"))
+        {
+            //if ghost's behavior is frightened
+            if (this.enabled)
+            {
+                Eaten(); //ghost gets eaten
+            }
+        }
+    }
+
+}
